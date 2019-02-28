@@ -1,0 +1,1 @@
+mysql -uroot -p123 -e 'show databases'
