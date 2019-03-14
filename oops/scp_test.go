@@ -48,7 +48,7 @@ func TestScpDownload(t *testing.T) {
 		return
 	}
 
-	ScpPullFile(client, "/opt/test/haproxy/", "/opt/test/download2/")
+	ScpPullFile(client, "/opt/test/haproxy/configuration.txt", "/opt/test/download2/")
 }
 
 func TestSSH(t *testing.T) {

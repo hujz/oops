@@ -113,6 +113,12 @@ func ScpPullFile(client *ssh.Session, src, dst string) error {
 			} else if strings.HasPrefix(headLine, "C") {
 				_, fileMode, size, name := parseHead(headLine)
 				dstFile := path.Join(relDir, name)
+				_, err := os.Open(relDir)
+
+				if err != nil {
+					fmt.Println(err)
+					os.MkdirAll(relDir, fileMode)
+				}
 				file, err := os.OpenFile(dstFile, os.O_CREATE|os.O_RDWR, fileMode)
 				if err != nil {
 					log.Fatalln("[scp] create file failed, `" + dstFile + "`, " + err.Error())

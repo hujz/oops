@@ -12,5 +12,5 @@ const StackBufferSize = 4096
 func PrintStack(writer io.Writer) {
 	var buf [StackBufferSize]byte
 	n := runtime.Stack(buf[:], false)
-	io.WriteString(writer, string(buf[:n]))
+	io.WriteString(writer, string(buf[1:n]))
 }
