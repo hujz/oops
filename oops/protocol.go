@@ -1,110 +1,71 @@
 package oops
 
 import (
-	"bufio"
+	"encoding/hex"
+	"golang.org/x/crypto/ssh"
 	"io"
-	"log"
-	"net"
+	"os"
 	"strings"
 )
 
-// ProtocolLinsten listen a port
-func ProtocolLinsten(addr string) {
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
-
-	if err != nil {
-		log.Fatalf("net.ResovleTCPAddr fail:%s", addr)
+func BuildProtocol(uri string) IProtocol {
+	switch {
+	case strings.HasPrefix(uri, "ssh:"):
+		ssh_ := &SSH{Url: uri[4:], Identity: uri[4:strings.Index(uri, "@")], Addr: uri[strings.Index(uri, "@")+1:]}
+		return ssh_
 	}
+	return nil
+}
 
-	listener, err := net.ListenTCP("tcp", tcpAddr)
-	if err != nil {
-		log.Fatalf("listen %s fail: %s", addr, err)
-		return
-	} else {
-		log.Println("listening", addr)
-	}
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Println("listener.Accept error:", err)
-			continue
+type IProtocol interface {
+	Open() error
+	Close() error
+	Name() string
+	Invoke(string, ...string) string
+	SetInOut(io.Writer, io.Reader)
+}
+
+type SSH struct {
+	Url, Identity, Addr string
+	session             *ssh.Session
+}
+
+func (s *SSH) Open() error {
+	desPw := []byte("123456781234567812345678")
+	id, _ := hex.DecodeString(s.Identity)
+	plain, err := DesDecrypt(id, desPw)
+	if plain != nil {
+		plainStr := string(plain)
+		user, passwd := plainStr[:strings.Index(plainStr, ":")], plainStr[strings.Index(plainStr, ":")+1:]
+		session, err := OpenSSHSession(user, passwd, s.Addr)
+		if err == nil {
+			s.session = session
+			session.Stdin = os.Stdin
+			session.Stdout = os.Stdout
+			session.Stderr = os.Stderr
+			return nil
 		}
-
-		go handleConnection(conn)
-
+		return err
 	}
-}
-func handleConnection(conn net.Conn) {
-	defer func() {
-		p := recover()
-		if p != nil {
-			log.Println(p)
-		}
-	}()
-	defer conn.Close()
-
-	hello := "You are welcome, input `help<enter>` print usage.\n"
-	println(hello, conn)
-
-	bufR := bufio.NewReader(conn)
-	for {
-		line, err := bufR.ReadString('\n')
-		if err != nil && err == io.EOF {
-			log.Println(err)
-			break
-		}
-
-		switch protocolDispatch(line, conn) {
-		case "exit":
-			return
-		}
-	}
+	return err
 }
 
-func help() string {
-	return `ls, ll
-	列出所有服务
-q, quit, exit
-	退出命令行
-select
-	选择服务
-`
+func (s *SSH) Close() error {
+	s.session.Close()
+	return nil
 }
 
-var prompt []byte = []byte{'>', '>', ':', ' '}
-
-func println(data string, writer io.Writer) {
-	writer.Write([]byte(data))
-	writer.Write(prompt)
+func (s *SSH) Name() string {
+	return "ssh:@" + s.Addr
 }
 
-func printPrompt(writer io.Writer) {
-	writer.Write(prompt)
+func (s *SSH) Invoke(cmd string, options ...string) string {
+	s.session.Run(cmd)
+	return ""
 }
 
-func protocolDispatch(line string, conn net.Conn) string {
-	if strings.HasSuffix(line, "\r\n") {
-		line = line[:len(line)-2]
-	} else if strings.HasSuffix(line, "\n") {
-		line = line[:len(line)-1]
-	}
-
-	//switch line {
-	//case "ls", "ll":
-	//	for _, n := range systemCache.Server {
-	//		fmt.Fprintln(conn, n.Name)
-	//	}
-	//	printPrompt(conn)
-	//case "help":
-	//	println(help(), conn)
-	//case "q", "exit", "quit":
-	//	conn.Write([]byte("bye"))
-	//	conn.Close()
-	//	return "exit"
-	//default:
-	//	printPrompt(conn)
-	//}
-
-	return "ok"
+func (s *SSH) SetInOut(writer io.Writer, reader io.Reader) {
+	s.session.Stderr = writer
+	s.session.Stdin = reader
+	s.session.Stdout = writer
 }

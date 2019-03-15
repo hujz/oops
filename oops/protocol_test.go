@@ -2,40 +2,25 @@ package oops
 
 import (
 	"fmt"
-	"io/ioutil"
+	"golang.org/x/crypto/ssh"
 	"os"
 	"testing"
-
-	"encoding/hex"
-	"encoding/xml"
 )
 
-func Test_XML(t *testing.T) {
-	file, err := os.Open("/opt/github/golang/src/oops/data/system.xml")
-	if err != nil {
-		fmt.Println(err)
-		return
+func TestSSH_Open(t *testing.T) {
+	session, _ := OpenSSHSession("hujz", "123", "127.0.0.1:22")
+	session.Stdout = os.Stdout
+	session.Stdin = os.Stdin
+	session.Stderr = os.Stderr
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          0,     // disable echoing
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
-	data, _ := ioutil.ReadAll(file)
-	sys := System{}
-	xml.Unmarshal(data, &sys)
 
-	fmt.Println(sys.Server[1])
+	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+		fmt.Println(err)
+	}
 
-	data, _ = xml.MarshalIndent(sys, "", "\t")
-	fmt.Println(string(data))
-}
-
-func Test_TestListen(t *testing.T) {
-	fmt.Println(os.Getenv("HOME"))
-}
-
-func Test_Encrypt(t *testing.T) {
-	p := []byte("123456781234567812345678")
-	e, _ := DesEncrypt([]byte("hujz:123"), p)
-	es := hex.EncodeToString(e)
-	fmt.Println(es)
-	data, _ := hex.DecodeString(es)
-	d, _ := DesDecrypt(data, p)
-	fmt.Println(string(d))
+	session.Run("sudo ls")
 }
