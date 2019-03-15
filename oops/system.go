@@ -46,7 +46,8 @@ type Protocol struct {
 
 type Server struct {
 	XMLName    xml.Name     `xml:"server"`
-	Type       string       `xml:"type,attr"`
+	Spec       string       `xml:"spec,attr"`
+	Version    string       `xml:"version,attr"`
 	Name       string       `xml:"name,attr"`
 	Operate    []Operate    `xml:"operate"`
 	Protocol   []Protocol   `xml:"protocol"`
