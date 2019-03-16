@@ -1,12 +1,22 @@
-package oops
+package main
 
 import (
 	"encoding/hex"
+	"encoding/xml"
 	"golang.org/x/crypto/ssh"
 	"io"
+	"oops/util"
 	"os"
 	"strings"
 )
+
+import ossh "oops/ssh"
+
+type Protocol struct {
+	XMLName xml.Name `xml:"protocol"`
+	Name    string   `xml:"name,attr"`
+	URI     string   `xml:",chardata"`
+}
 
 func BuildProtocol(uri string) IProtocol {
 	switch {
@@ -33,11 +43,11 @@ type SSH struct {
 func (s *SSH) Open() error {
 	desPw := []byte("123456781234567812345678")
 	id, _ := hex.DecodeString(s.Identity)
-	plain, err := DesDecrypt(id, desPw)
+	plain, err := util.DesDecrypt(id, desPw)
 	if plain != nil {
 		plainStr := string(plain)
 		user, passwd := plainStr[:strings.Index(plainStr, ":")], plainStr[strings.Index(plainStr, ":")+1:]
-		session, err := OpenSSHSession(user, passwd, s.Addr)
+		session, err := ossh.OpenSSHSession(user, passwd, s.Addr)
 		if err == nil {
 			s.session = session
 			session.Stdin = os.Stdin

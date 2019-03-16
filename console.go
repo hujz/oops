@@ -1,4 +1,4 @@
-package oops
+package main
 
 import (
 	"bufio"
@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// ProtocolLinsten listen a port
-func ProtocolLinsten(addr string) {
+// ProtocolListen listen a port
+func ProtocolListen(addr string) {
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 

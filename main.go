@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"oops/oops"
 )
 
 var (
@@ -27,11 +26,11 @@ func main() {
 
 	stop := make(chan int)
 	go func() {
-		oops.HttpServer(http)
+		HttpServer(http)
 		stop <- 1
 	}()
 	go func() {
-		oops.ProtocolLinsten(console)
+		ProtocolListen(console)
 		stop <- 1
 	}()
 

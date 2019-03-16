@@ -5,4 +5,7 @@
     <instance name="get-data" version="1.2" spec="java-1.8">
         <host>get-data#105</host>
     </instance>
+    <instance name="get-data" version="1.2" spec="java-1.8">
+        <host>get-data#106</host>
+    </instance>
 </system> 

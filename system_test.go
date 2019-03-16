@@ -1,4 +1,4 @@
-package oops
+package main
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ func TestSystem_Start(t *testing.T) {
 }
 
 func TestServer_Start(t *testing.T) {
-	server := Server{Name: "test"}
+	server := Service{Name: "test"}
 	server.Start()
 	fmt.Println(server.Status)
 }

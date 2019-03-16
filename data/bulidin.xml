@@ -1,8 +1,8 @@
 <bulidin>
-    <os family="linux">
+    <host family="linux">
         <operate name="init" protocol="ssh">init.sh</operate>
         <operate name="start" protocol="ec2">start</operate>
         <operate name="shutdown" protocol="ssh">!shutdown</operate>
         <operate name="reboot" protocol="ssh">!reboot</operate>
-    </os>
+    </host>
 </bulidin>

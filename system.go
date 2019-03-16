@@ -1,4 +1,4 @@
-package oops
+package main
 
 import (
 	"encoding/xml"
@@ -23,53 +23,21 @@ type Dependency struct {
 	Server  string   `xml:",chardata"`
 }
 
-type Operate struct {
-	XMLName  xml.Name `xml:"operate"`
-	Name     string   `xml:"name,attr"`
-	Protocol string   `xml:"protocol,attr"`
-	Argument string   `xml:",chardata"`
-}
-
-type Host struct {
-	XMLName xml.Name `xml:"host"`
-	Vip     string   `xml:"vip"`
-	IP      []string `xml:"ip"`
-	Os      string   `xml:"os"`
-	Via     string   `xml:"via"`
-}
-
-type Protocol struct {
-	XMLName xml.Name `xml:"protocol"`
-	Name    string   `xml:"name,attr"`
-	URI     string   `xml:",chardata"`
-}
-
-type Server struct {
-	XMLName    xml.Name     `xml:"server"`
-	Spec       string       `xml:"spec,attr"`
-	Version    string       `xml:"version,attr"`
-	Name       string       `xml:"name,attr"`
-	Operate    []Operate    `xml:"operate"`
-	Protocol   []Protocol   `xml:"protocol"`
-	Host       Host         `xml:"host"`
-	Dependency []Dependency `xml:"dependency>server"`
-	Status     ServerStatus
-}
 type System struct {
-	XMLName    xml.Name `xml:"system"`
-	Version    string   `xml:"version,attr"`
-	Name       string   `xml:"name,attr"`
-	Server     []Server `xml:"server"`
+	XMLName    xml.Name  `xml:"system"`
+	Version    string    `xml:"version,attr"`
+	Name       string    `xml:"name,attr"`
+	Server     []Service `xml:"server"`
 	LaunchNode *DependTree
 }
 
 type DependTree struct {
-	Server     *Server
+	Server     *Service
 	Dependency []*DependTree
 	RefCount   int
 }
 
-func (server *Server) Start() string {
+func (server *Service) Start() string {
 	if server.Status == Status_Running {
 		return "ok"
 	}
@@ -80,7 +48,7 @@ func (server *Server) Start() string {
 	return res
 }
 
-func (server *Server) Stop() string {
+func (server *Service) Stop() string {
 	if server.Status == Status_Running {
 		res := server.Invoke("stop")
 		if res == "ok" {
@@ -91,11 +59,11 @@ func (server *Server) Stop() string {
 	return "ok"
 }
 
-func (server *Server) State() string {
+func (server *Service) State() string {
 	return server.Invoke("status")
 }
 
-func (server *Server) Invoke(operate string) string {
+func (server *Service) Invoke(operate string) string {
 	log.Println(server.Name, ": --> ", operate)
 	var op Operate
 	var pt Protocol
@@ -124,24 +92,24 @@ func (server *Server) Invoke(operate string) string {
 }
 
 func (system *System) Start() {
-	system.recursion(system.LaunchNode, func(server *Server) string {
+	system.recursion(system.LaunchNode, func(server *Service) string {
 		return server.Start()
 	})
 }
 
 func (system *System) Stop() {
-	system.recursion(system.LaunchNode, func(server *Server) string {
+	system.recursion(system.LaunchNode, func(server *Service) string {
 		return server.Stop()
 	})
 }
 
 func (system *System) Status() {
-	system.recursion(system.LaunchNode, func(server *Server) string {
+	system.recursion(system.LaunchNode, func(server *Service) string {
 		return server.State()
 	})
 }
 
-func (system *System) recursion(treeNode *DependTree, call func(server *Server) string) string {
+func (system *System) recursion(treeNode *DependTree, call func(server *Service) string) string {
 	if len(treeNode.Dependency) == 0 {
 		if res := call(treeNode.Server); res != "ok" {
 			return res
@@ -210,7 +178,7 @@ func BuildSystem(system string) *System {
 }
 
 func resolveDepend(system *System) *DependTree {
-	serverMap := make(map[string]*Server)
+	serverMap := make(map[string]*Service)
 	dependTreeMap := make(map[string]*DependTree)
 	for n := range system.Server {
 		pServer := &system.Server[n]

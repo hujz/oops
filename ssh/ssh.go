@@ -2,7 +2,7 @@
  * https://github.com/andesli/gossh/blob/master/scp/scp.go
  */
 
-package oops
+package ssh
 
 import (
 	"bufio"
