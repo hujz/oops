@@ -24,3 +24,4 @@ func TestServer_Start(t *testing.T) {
 	server.Start()
 	fmt.Println(server.Status)
 }
+

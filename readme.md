@@ -15,7 +15,7 @@ Oops
 
 > operate
 
-操作，基于某种协议的调用执行
+操作，基于某种协议的调用执行，隶属host或service
 
 > protocol
 

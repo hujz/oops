@@ -11,7 +11,6 @@ import (
 
 // HttpServer start a HttpServer
 func HttpServer(host string) {
-
 	http.Handle("/res/", http.StripPrefix("/res/", http.FileServer(http.Dir("dist"))))
 
 	l, err := net.Listen("tcp", host)

@@ -7,8 +7,10 @@ import (
 	"testing"
 )
 
+import pssh "oops/ssh"
+
 func TestSSH_Open(t *testing.T) {
-	session, _ := OpenSSHSession("hujz", "123", "127.0.0.1:22")
+	session, _ := pssh.OpenSSHSession("hujz", "123", "127.0.0.1:22")
 	session.Stdout = os.Stdout
 	session.Stdin = os.Stdin
 	session.Stderr = os.Stderr

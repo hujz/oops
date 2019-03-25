@@ -65,7 +65,7 @@ func handShake(conn net.Conn) *System {
 		nameListStr = nameListStr[2:]
 	loop:
 		fmt.Fprintln(conn, "=========================")
-		fmt.Fprintln(conn, "Please select system: ["+nameListStr+"]")
+		fmt.Fprintln(conn, "Please select system: "+nameListStr)
 		fmt.Fprintln(conn, "=========================")
 		printPrompt(conn)
 
