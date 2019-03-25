@@ -1,4 +1,4 @@
-package xml
+package meta
 
 import "encoding/xml"
 
