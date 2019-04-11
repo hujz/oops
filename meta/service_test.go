@@ -11,7 +11,7 @@ import (
 func Test_Host(t *testing.T) {
 	file, _ := os.Open("/opt/github/golang/src/oops/data/link/host.xml")
 	data, _ := ioutil.ReadAll(file)
-	host := HostList{}
+	host := XMLHostList{}
 	err := xml.Unmarshal(data, &host)
 	if err != nil {
 		fmt.Println(err)
@@ -27,7 +27,7 @@ func Test_Host(t *testing.T) {
 func Test_Service(t *testing.T) {
 	file, _ := os.Open("/opt/github/golang/src/oops/data/link/service.xml")
 	data, _ := ioutil.ReadAll(file)
-	serviceList := &ServiceList{}
+	serviceList := &XMLServiceList{}
 	err := xml.Unmarshal(data, serviceList)
 	if err != nil {
 		fmt.Println(err)
@@ -39,7 +39,7 @@ func Test_Service(t *testing.T) {
 func Test_Spec(t *testing.T) {
 	file, _ := os.Open("/opt/github/golang/src/oops/data/spec.xml")
 	data, _ := ioutil.ReadAll(file)
-	serviceList := &Spec{}
+	serviceList := &XMLSpec{}
 	err := xml.Unmarshal(data, serviceList)
 	if err != nil {
 		fmt.Println(err)
@@ -49,9 +49,9 @@ func Test_Spec(t *testing.T) {
 }
 
 func Test_Instance(t *testing.T) {
-	file, _ := os.Open("/opt/github/golang/src/oops/data/link/system-run.xml")
+	file, _ := os.Open("/opt/github/golang/src/oops/data/link/system.xml")
 	data, _ := ioutil.ReadAll(file)
-	serviceList := &System{}
+	serviceList := &XMLSystem{}
 	err := xml.Unmarshal(data, serviceList)
 	if err != nil {
 		fmt.Println(err)

@@ -1,0 +1,5 @@
+<system name="link-435" version="1">
+    <instance id="mysql-105" service="mysql-master" version="5.7">
+        <host>mysql#105</host>
+    </instance>
+</system> 
