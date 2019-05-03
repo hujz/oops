@@ -1,5 +1,5 @@
 <service>
-    <service type="mysql-5.7" >
+    <service name="mysql" version="5.7">
         <protocol name="mysql">mysql:e1b5d981f079610d7dfb8ddc1cf0e8f0@127.0.0.1:3306/link</protocol>
         <operate name="start" protocol="ssh">!service mysql start</operate>
         <operate name="stop" protocol="ssh">!sudo service mysql stop</operate>
@@ -8,15 +8,14 @@
         <env> bindir="" datadir="" logdir="" confdir=""
         </env>
     </service>
-    <service name="blogapi" spec="blogapi" version="">
+    <service name="blogapi">
         <operate name="start" protocol="ssh">!service blog start</operate>
         <operate name="stop" protocol="ssh">!service blog stop</operate>
         <operate name="status" protocol="ssh">blog_check.sh</operate>
         <env> bindir="" datadir="" logdir="" confdir=""
         </env>
         <dependency>
-            <service>mysql-5.7</service>
-            <service>nginx-blog</service>
+            <service name="mysql" version="5.7"></service>
         </dependency>
     </service>
 </service>

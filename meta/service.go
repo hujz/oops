@@ -1,31 +1,38 @@
 package meta
 
-type System struct {
-	Version, Name string
-	Service       map[string]*Service
-	Instance      map[string]*Instance
-	Host          map[string]*Host
-}
+import (
+	"github.com/pkg/errors"
+	"log"
+	"oops/protocol"
+	"os"
+)
 
-type Host struct {
-	Name, OS, Family, Virt string
-	VIP, IP                []string
-	Protocol               map[string]*Protocol
-	Operate                map[string]*Operate
-}
+var logger = log.New(os.Stdout, "[service]", log.LstdFlags|log.Lshortfile|log.Lmicroseconds)
+
+type Status string
+type Result string
+
+const (
+	Status_Starting              Status = "starting"
+	Status_Running               Status = "running"
+	Status_Downing               Status = "downing"
+	Status_Down                  Status = "down"
+	Result_Ok                    Result = "ok"
+	Result_Failed                Result = "filed"
+	Result_Service_Ready_Running Result = "running"
+	Result_Unsupport             Result = "unsupport"
+	Operate_Start                       = "start"
+	Operate_Status                      = "status"
+	Operate_Stop                        = "stop"
+)
 
 type Service struct {
-	Spec, Version, Name string
-	Protocol            map[string]*Protocol
-	Operate             map[string]*Operate
-	Dependency          []*Service
-	Reference           []*Service
-	Instance            []*Instance
-}
-
-type Instance struct {
-	Name, Version string
-	Host          Host
+	Version, Name string
+	Env           map[string]string
+	Protocol      map[string]*Protocol
+	Operate       map[string]*Operate
+	Dependency    []*Service
+	Reference     []*Service
 }
 
 type Protocol struct {
@@ -33,31 +40,47 @@ type Protocol struct {
 }
 
 type Operate struct {
-	Name, Protocol, Argument string
+	Name, Argument string
+	Protocol       protocol.IProtocol
 }
 
-func (sys *System) Build(system *XMLSystem, hostList []*XMLHost) {
-	sys.Name = system.Name
-	sys.Version = system.Version
-	hostMap := make(map[string]Host)
-	for _, h := range hostList {
-		host := Host{Name: h.Name, OS: h.OS, Family: h.Family, Virt: h.Virt, VIP: h.VIP, IP: h.IP}
-		protocolMap := make(map[string]Protocol)
-		for _, p := range h.Protocol {
-			protocolMap[p.Name] = Protocol{Name: p.Name, URI: p.URI}
-		}
-		operateMap := make(map[string]Operate)
-		for _, o := range h.Operate {
-			operateMap[o.Name] = Operate{Name: o.Name, Protocol: o.Protocol, Argument: o.Argument}
-		}
-		host.Protocol = protocolMap
-		hostMap[h.Name] = host
-	}
+func (o *Operate) Invoke() (string, error) {
+	err := o.Protocol.Open()
+	return "", errors.WithMessage(err, "[protocol] open (\""+o.Protocol.Name()+"\") error!")
+	defer o.Protocol.Close()
+	return o.Protocol.Invoke(o.Argument), nil
+}
 
+func (s *Service) Invoke(operate string) (Result, error) {
+	logger.Println(s.Name, ": --> ", operate)
+	s.Operate[operate].Invoke()
+	return Result_Ok, nil
+}
+
+func (s *Service) Start() (Result, error) {
+	if s.Status() {
+		return Result_Service_Ready_Running, nil
+	} else {
+		return s.Invoke(Operate_Start)
+	}
+}
+
+func (s *Service) Stop() (Result, error) {
+	return s.Invoke("stop")
+}
+
+func (s *Service) Status() bool {
+	res, err := s.Invoke(Operate_Status)
+	if err == nil {
+		return res == "ok"
+	} else {
+		logger.Println("check status failed!", err)
+		return false
+	}
 }
 
 type IApplication interface {
-	Start() (string, error)
-	Stop() (string, error)
-	Status() (string, error)
+	Start() (Result, error)
+	Stop() (Result, error)
+	Status() (Result, error)
 }

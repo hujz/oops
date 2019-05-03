@@ -1,8 +1,7 @@
-package main
+package protocol
 
 import (
 	"encoding/hex"
-	"encoding/xml"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"oops/util"
@@ -11,12 +10,6 @@ import (
 )
 
 import ossh "oops/ssh"
-
-type Protocol struct {
-	XMLName xml.Name `xml:"protocol"`
-	Name    string   `xml:"name,attr"`
-	URI     string   `xml:",chardata"`
-}
 
 func BuildProtocol(uri string) IProtocol {
 	switch {
@@ -31,7 +24,7 @@ type IProtocol interface {
 	Open() error
 	Close() error
 	Name() string
-	Invoke(string, ...string) string
+	Invoke(string) string
 	SetInOut(io.Writer, io.Reader)
 }
 
@@ -69,7 +62,7 @@ func (s *SSH) Name() string {
 	return "ssh:@" + s.Addr
 }
 
-func (s *SSH) Invoke(cmd string, options ...string) string {
+func (s *SSH) Invoke(cmd string) string {
 	s.session.Run(cmd)
 	return ""
 }
