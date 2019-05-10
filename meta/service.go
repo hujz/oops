@@ -28,9 +28,10 @@ const (
 
 type Service struct {
 	Version, Name string
-	Env           map[string]string
-	Protocol      map[string]*Protocol
+	Env           string
+	Protocol      map[string]protocol.IProtocol
 	Operate       map[string]*Operate
+	Depth         int
 	Dependency    []*Service
 	Reference     []*Service
 }

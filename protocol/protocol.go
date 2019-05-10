@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"golang.org/x/crypto/ssh"
 	"io"
+	"oops/meta"
 	"oops/util"
 	"os"
 	"strings"
@@ -11,7 +12,8 @@ import (
 
 import ossh "oops/ssh"
 
-func BuildProtocol(uri string) IProtocol {
+func BuildProtocol(protocol meta.Protocol) IProtocol {
+	uri := protocol.URI
 	switch {
 	case strings.HasPrefix(uri, "ssh:"):
 		ssh_ := &SSH{Url: uri[4:], Identity: uri[4:strings.Index(uri, "@")], Addr: uri[strings.Index(uri, "@")+1:]}

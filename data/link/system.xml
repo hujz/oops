@@ -1,4 +1,4 @@
 <system name="link-435" version="1">
-    <service name="mysql"></service>
-    <service name="mysql"></service>
+    <server name="mysql"></server>
+    <server name="blogapi" version="4.3.6"></server>
 </system> 
