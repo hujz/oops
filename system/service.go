@@ -1,9 +1,8 @@
-package meta
+package system
 
 import (
 	"github.com/pkg/errors"
 	"log"
-	"oops/protocol"
 	"os"
 )
 
@@ -29,7 +28,7 @@ const (
 type Service struct {
 	Version, Name string
 	Env           string
-	Protocol      map[string]protocol.IProtocol
+	Protocol      map[string]IProtocol
 	Operate       map[string]*Operate
 	Depth         int
 	Dependency    []*Service
@@ -42,7 +41,7 @@ type Protocol struct {
 
 type Operate struct {
 	Name, Argument string
-	Protocol       protocol.IProtocol
+	Protocol       IProtocol
 }
 
 func (o *Operate) Invoke() (string, error) {

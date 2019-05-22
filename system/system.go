@@ -1,4 +1,4 @@
-package meta
+package system
 
 var SystemCache = make(map[string]*System)
 
@@ -17,6 +17,7 @@ func Get(name string) *System {
 }
 
 func (system *System) Cache() {
+	system.Build()
 	SystemCache[system.Name] = system
 }
 
@@ -64,6 +65,7 @@ func recursion(ss *[]*Service, topService *[]*Service, depth int) {
 }
 
 func (system *System) Start() {
+
 }
 
 func (system *System) Stop() {

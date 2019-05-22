@@ -1,10 +1,9 @@
-package protocol
+package system
 
 import (
 	"encoding/hex"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"oops/meta"
 	"oops/util"
 	"os"
 	"strings"
@@ -12,7 +11,7 @@ import (
 
 import ossh "oops/ssh"
 
-func BuildProtocol(protocol meta.Protocol) IProtocol {
+func BuildProtocol(protocol Protocol) IProtocol {
 	uri := protocol.URI
 	switch {
 	case strings.HasPrefix(uri, "ssh:"):
