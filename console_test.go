@@ -25,3 +25,14 @@ func Test_XML(t *testing.T) {
 func Test_TestListen(t *testing.T) {
 	fmt.Println(os.Getenv("HOME"))
 }
+
+func Test_Test(t *testing.T) {
+	str := 2
+	switch str {
+	case 2:
+	case 1:
+		fmt.Println(11)
+	default:
+		fmt.Println(00)
+	}
+}

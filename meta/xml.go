@@ -55,14 +55,18 @@ func init() {
 	os.Mkdir(dataDir, os.ModePerm)
 }
 
-var nameDirMapping = make(map[string]string)
+// nameDirMapping 系统名和文件夹对应关系
+var nameDirMapping map[string]string
 
+// GetSystemNames 获取当前接管的系统名称，并缓存
 func GetSystemNames() []string {
 	file, _ := os.Open(dataDir)
 	if file != nil {
+		nameDirMapping = make(map[string]string)
 		if names, _ := file.Readdirnames(-1); names != nil {
 			for i, n := range names {
-				data := readData(n, 0)
+				xmlFileNames := getVersion(n)
+				data := readData(n, xmlFileNames[0])
 				sys := XMLSystem{}
 				xml.Unmarshal(data, &sys)
 				nameDirMapping[sys.Name] = n
@@ -74,11 +78,10 @@ func GetSystemNames() []string {
 	return nil
 }
 
-func readData(system string, index int) []byte {
+// readData 读取指定文件的配置信息
+func readData(system string, xmlName string) []byte {
 	systemDir := filepath.Join(dataDir, system)
-
-	ver := getVersion(system)
-	fileName := filepath.Join(systemDir, ver[index])
+	fileName := filepath.Join(systemDir, xmlName)
 	file, err := os.Open(fileName)
 	if err != nil {
 		fmt.Println(err)
@@ -89,6 +92,7 @@ func readData(system string, index int) []byte {
 	return data
 }
 
+// getVersion 获取当前版本使用的配置文件文件，string[system.xml, service.xml]
 func getVersion(system string) []string {
 	systemDir := filepath.Join(dataDir, system)
 	ver := filepath.Join(systemDir, "version")
@@ -104,10 +108,19 @@ func getVersion(system string) []string {
 	return []string{"system.xml", "service.xml"}
 }
 
-func GetSystemMeta(system string) *system.System {
+// GetSystem 获取指定系统
+func GetSystem(system string) *system.System {
+	if nameDirMapping == nil {
+		GetSystemNames()
+		if nameDirMapping == nil {
+			return nil
+		}
+	}
+
 	system = nameDirMapping[system]
-	systemData := readData(system, 0)
-	serverData := readData(system, 1)
+	xmlFileNames := getVersion(system)
+	systemData := readData(system, xmlFileNames[0])
+	serverData := readData(system, xmlFileNames[1])
 
 	if systemData == nil || serverData == nil {
 		return nil
@@ -120,6 +133,7 @@ func GetSystemMeta(system string) *system.System {
 	return nil
 }
 
+// buildSystem 将xml配置数据转换成system
 func buildSystem(xmlSystem *XMLSystem, serviceList *XMLServiceList) *system.System {
 	sys := &system.System{}
 	sys.Name = xmlSystem.Name
@@ -129,6 +143,9 @@ func buildSystem(xmlSystem *XMLSystem, serviceList *XMLServiceList) *system.Syst
 	return sys
 }
 
+// resolveInstance 解析所有已经实例化的service
+// serviceMap 所有服务映射表
+// xmlSystem system中已经实例化的service
 func resolveInstance(sys *system.System, serviceMap map[string]*system.Service, xmlSystem *XMLSystem) {
 	var usedServerList []*system.Service
 	for _, s := range xmlSystem.Server {
@@ -143,6 +160,7 @@ func resolveInstance(sys *system.System, serviceMap map[string]*system.Service, 
 	sys.Service = usedServerList
 }
 
+// 根据名字或者唯一标识获取service，identity无法获取，则查找属于name的service
 func getService(serviceMap map[string]*system.Service, name, identity string) *system.Service {
 	s := serviceMap[identity]
 	if s == nil {
@@ -155,6 +173,7 @@ func getService(serviceMap map[string]*system.Service, name, identity string) *s
 	return s
 }
 
+// allUsedServer 根据依赖，将实例化的service，所有使用的服务名提取出来
 func allUsedServer(ss []*system.Service, usedNames map[string]string) {
 	for _, s := range ss {
 		usedNames[serviceIdentity(*s)] = "1"
@@ -165,7 +184,40 @@ func allUsedServer(ss []*system.Service, usedNames map[string]string) {
 	}
 }
 
+// resolveService 将所有配置的service，转换成service映射表
 func resolveService(sys *XMLSystem, serviceList *XMLServiceList) map[string]*system.Service {
+	xmlServiceMap := make(map[string]*XMLService)
+	for i := range serviceList.ServiceList {
+		xmlServiceMap[xmlServiceIdentity(serviceList.ServiceList[i])] = &serviceList.ServiceList[i]
+	}
+	for i := range sys.Server {
+		inst := &sys.Server[i]
+		tpl := xmlServiceMap[xmlServiceIdentity(*inst)]
+		if tpl == nil {
+			if inst.Version == "" {
+				for j, s := range serviceList.ServiceList {
+					if s.Name == inst.Name {
+						tpl = &serviceList.ServiceList[j]
+					}
+				}
+			}
+		}
+
+		if tpl != nil { // copy instance to tpl
+			tpl.Env = inst.Env
+			if inst.Dependency != nil && len(inst.Dependency) != 0 {
+				tpl.Dependency = append(tpl.Dependency, inst.Dependency...)
+			}
+			if inst.Operate != nil && len(inst.Operate) != 0 {
+				tpl.Operate = append(tpl.Operate, inst.Operate...)
+			}
+			if inst.Protocol != nil && len(inst.Protocol) != 0 {
+				tpl.Protocol = append(tpl.Protocol, inst.Protocol...)
+			}
+		} else { // add new instance to service list
+			serviceList.ServiceList = append(serviceList.ServiceList, *inst)
+		}
+	}
 	serviceMap := make(map[string]*system.Service)
 	for _, s := range serviceList.ServiceList {
 		service := system.Service{Name: s.Name, Version: s.Version, Depth: 1, Env: s.Env}
@@ -185,6 +237,7 @@ func resolveService(sys *XMLSystem, serviceList *XMLServiceList) map[string]*sys
 	return serviceMap
 }
 
+// resolveDependency 查找并添加service的依赖
 func resolveDependency(serviceMap map[string]*system.Service, xmlServiceList *XMLServiceList) {
 	for _, xs := range xmlServiceList.ServiceList {
 		for _, xd := range xs.Dependency {

@@ -1,5 +1,10 @@
 package system
 
+import (
+	"io"
+	"strconv"
+)
+
 var SystemCache = make(map[string]*System)
 
 type System struct {
@@ -16,11 +21,12 @@ func Get(name string) *System {
 	return SystemCache[name]
 }
 
-func (system *System) Cache() {
-	system.Build()
-	SystemCache[system.Name] = system
+func (sys *System) Cache() {
+	sys.Build()
+	SystemCache[sys.Name] = sys
 }
 
+// Build 计算实例化的和所有依赖的service，得出最上层最下层的服务列表和服务依赖矩阵
 func (system *System) Build() {
 	if system.build {
 		return
@@ -52,6 +58,7 @@ func setLength(ss *[][]*Service, newLen int) {
 	}
 }
 
+// recursion 递归依赖，计算出每个service的最大深度
 func recursion(ss *[]*Service, topService *[]*Service, depth int) {
 	for _, s := range *ss {
 		if s.Reference == nil {
@@ -64,12 +71,35 @@ func recursion(ss *[]*Service, topService *[]*Service, depth int) {
 	}
 }
 
-func (system *System) Start() {
-
+func (sys *System) Start(input io.Reader, output io.Writer) {
+	for l := len(sys.LevelMatrix) - 1; l > 0; l-- {
+		for j := len(sys.LevelMatrix[l]) - 1; j >= 0; j-- {
+			s := sys.LevelMatrix[l][j]
+			output.Write([]byte(strconv.Itoa(l) + ": start " + s.Name + "(" + s.Version + ")\n"))
+			s.Invoke(Operate_Start, input, output)
+		}
+		output.Write([]byte("\n"))
+	}
 }
 
-func (system *System) Stop() {
+func (sys *System) Stop(input io.Reader, output io.Writer) {
+	for l1, i := len(sys.LevelMatrix), 1; i < l1; i++ {
+		for l2, j := len(sys.LevelMatrix[i]), 0; j < l2; j++ {
+			s := sys.LevelMatrix[i][j]
+			output.Write([]byte(strconv.Itoa(i) + ": start " + s.Name + "(" + s.Version + ")\n"))
+			s.Invoke(Operate_Stop, input, output)
+		}
+		output.Write([]byte("\n"))
+	}
 }
 
-func (system *System) Status() {
+func (sys *System) Status(input io.Reader, output io.Writer) {
+	for l1, i := len(sys.LevelMatrix), 1; i < l1; i++ {
+		for l2, j := len(sys.LevelMatrix[i]), 0; j < l2; j++ {
+			s := sys.LevelMatrix[i][j]
+			output.Write([]byte(strconv.Itoa(i) + ": start " + s.Name + "(" + s.Version + ")\n"))
+			s.Invoke(Operate_Status, input, output)
+		}
+		output.Write([]byte("\n"))
+	}
 }

@@ -2,11 +2,12 @@ package system
 
 import (
 	"github.com/pkg/errors"
+	"io"
 	"log"
 	"os"
 )
 
-var logger = log.New(os.Stdout, "[service]", log.LstdFlags|log.Lshortfile|log.Lmicroseconds)
+var logger = log.New(os.Stdout, "[service] ", log.LstdFlags|log.Lshortfile|log.Lmicroseconds)
 
 type Status string
 type Result string
@@ -44,33 +45,35 @@ type Operate struct {
 	Protocol       IProtocol
 }
 
-func (o *Operate) Invoke() (string, error) {
+func (o *Operate) Invoke(input io.Reader, output io.Writer) (string, error) {
 	err := o.Protocol.Open()
-	return "", errors.WithMessage(err, "[protocol] open (\""+o.Protocol.Name()+"\") error!")
+	if err != nil {
+		return "", errors.WithMessage(err, "open (\""+o.Protocol.Name()+"\") error!")
+	}
 	defer o.Protocol.Close()
-	return o.Protocol.Invoke(o.Argument), nil
+	return o.Protocol.Invoke(o.Argument, input, output), nil
 }
 
-func (s *Service) Invoke(operate string) (Result, error) {
-	logger.Println(s.Name, ": --> ", operate)
-	s.Operate[operate].Invoke()
+func (s *Service) Invoke(operate string, input io.Reader, output io.Writer) (Result, error) {
+	logger.Println(s.Name, "-->", operate)
+	s.Operate[operate].Invoke(input, output)
 	return Result_Ok, nil
 }
 
-func (s *Service) Start() (Result, error) {
-	if s.Status() {
+func (s *Service) Start(input io.Reader, output io.Writer) (Result, error) {
+	if s.Status(input, output) {
 		return Result_Service_Ready_Running, nil
 	} else {
-		return s.Invoke(Operate_Start)
+		return s.Invoke(Operate_Start, input, output)
 	}
 }
 
-func (s *Service) Stop() (Result, error) {
-	return s.Invoke("stop")
+func (s *Service) Stop(input io.Reader, output io.Writer) (Result, error) {
+	return s.Invoke("stop", input, output)
 }
 
-func (s *Service) Status() bool {
-	res, err := s.Invoke(Operate_Status)
+func (s *Service) Status(input io.Reader, output io.Writer) bool {
+	res, err := s.Invoke(Operate_Status, input, output)
 	if err == nil {
 		return res == "ok"
 	} else {

@@ -2,14 +2,18 @@ package system
 
 import (
 	"encoding/hex"
+	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
+	"log"
 	"oops/util"
 	"os"
 	"strings"
 )
 
 import ossh "oops/ssh"
+
+var sshLogger = log.New(os.Stdout, "[ssh] ", log.Llongfile|log.LstdFlags|log.Lmicroseconds)
 
 func BuildProtocol(protocol Protocol) IProtocol {
 	uri := protocol.URI
@@ -25,8 +29,7 @@ type IProtocol interface {
 	Open() error
 	Close() error
 	Name() string
-	Invoke(string) string
-	SetInOut(io.Writer, io.Reader)
+	Invoke(string, io.Reader, io.Writer) string
 }
 
 type SSH struct {
@@ -35,6 +38,7 @@ type SSH struct {
 }
 
 func (s *SSH) Open() error {
+	sshLogger.Println("open")
 	desPw := []byte("123456781234567812345678")
 	id, _ := hex.DecodeString(s.Identity)
 	plain, err := util.DesDecrypt(id, desPw)
@@ -63,13 +67,14 @@ func (s *SSH) Name() string {
 	return "ssh:@" + s.Addr
 }
 
-func (s *SSH) Invoke(cmd string) string {
-	s.session.Run(cmd)
+func (s *SSH) Invoke(cmd string, reader io.Reader, writer io.Writer) string {
+	if strings.HasPrefix(cmd, "!") {
+		s.session.Stderr = writer
+		s.session.Stdout = writer
+		s.session.Stdin = reader
+		s.session.Run(cmd[1:])
+	} else {
+		fmt.Println(cmd)
+	}
 	return ""
-}
-
-func (s *SSH) SetInOut(writer io.Writer, reader io.Reader) {
-	s.session.Stderr = writer
-	s.session.Stdin = reader
-	s.session.Stdout = writer
 }

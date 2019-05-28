@@ -1,3 +1,0 @@
-<system name="paas" version="1">
-    <service name="nginx"></service>
-</system>

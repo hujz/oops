@@ -36,7 +36,7 @@
             <service name="rabbitmq"></service>
         </dependency>
     </service>
-    <service name="nginx">
+    <service name="nginx" version="1.12.3">
         <dependency>
             <service name="blogapi"></service>
         </dependency>
