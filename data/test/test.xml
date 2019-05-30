@@ -3,6 +3,10 @@
         <protocol name="ssh">ssh:e1b5d981f079610d7dfb8ddc1cf0e8f0@127.0.0.1:22</protocol>
         <operate name="start" protocol="ssh">!ls -anlh</operate>
         <operate name="stop" protocol="ssh">!ip a</operate>
-        <operate name="status" protocol="ssh">blog_check.sh</operate>
+        <operate name="status" protocol="ssh">check.sh</operate>
+    </service>
+
+    <service name="blogapi">
+        <env></env>
     </service>
 </system>

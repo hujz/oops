@@ -1,6 +1,9 @@
 package errors
 
-const Err_Find_Dependency string = "Err_Find_Dependency"
+const (
+	Err_Find_Dependency   string = "Err_Find_Dependency"
+	Err_Read_Shell_Failed string = "Err_Read_Shell_Failed"
+)
 
 func NewError(code, message string) error {
 	return &errorString{code, message}

@@ -2,9 +2,9 @@ package system
 
 import (
 	"encoding/hex"
-	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
+	"io/ioutil"
 	"log"
 	"oops/util"
 	"os"
@@ -74,7 +74,19 @@ func (s *SSH) Invoke(cmd string, reader io.Reader, writer io.Writer) string {
 		s.session.Stdin = reader
 		s.session.Run(cmd[1:])
 	} else {
-		fmt.Println(cmd)
+		file, err := os.Open(util.GetConfig().ShellDir + cmd)
+		if err != nil {
+			logger.Println(err)
+			return "error:read shell failed!"
+		}
+		str, err := ioutil.ReadAll(file)
+		if err != nil {
+			return "error:read shell content failed!"
+		}
+		s.session.Stderr = writer
+		s.session.Stdout = writer
+		s.session.Stdin = reader
+		s.session.Run(string(str))
 	}
 	return ""
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"oops/system"
+	"oops/util"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,10 +49,7 @@ type XMLOperate struct {
 var dataDir string
 
 func init() {
-	dataDir = os.Getenv("oops_data_dir")
-	if dataDir == "" {
-		dataDir = os.Getenv("HOME") + "/.oops/"
-	}
+	dataDir = util.GetConfig().MetaDir
 	os.Mkdir(dataDir, os.ModePerm)
 }
 

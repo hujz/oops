@@ -2,19 +2,19 @@ package main
 
 import (
 	"flag"
+	"oops/util"
 )
 
 var (
-	h             bool
-	v             string
-	httpAble, console string
+	h bool
+	v string
 )
 
 func init() {
 	flag.BoolVar(&h, "h", false, "print usage")
 	flag.StringVar(&v, "v", "1.0.0", "print version info")
-	flag.StringVar(&httpAble, "http", "", "config port for http-server mode, enable manage/control via http api")
-	flag.StringVar(&console, "console", ":9528", "start oops-protocol console, listen this port")
+	//flag.StringVar(&httpAble, "http", "", "config port for http-server mode, enable manage/control via http api")
+	//flag.StringVar(&console, "console", ":9528", "start oops-protocol console, listen this port")
 }
 
 func main() {
@@ -26,11 +26,11 @@ func main() {
 
 	stop := make(chan int)
 	go func() {
-		HttpServer(httpAble)
+		HttpServer(util.GetConfig().HttpAddr)
 		stop <- 1
 	}()
 	go func() {
-		ProtocolListen(console)
+		ProtocolListen(util.GetConfig().ConsoleAddr)
 		stop <- 1
 	}()
 
