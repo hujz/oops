@@ -29,7 +29,7 @@ type IProtocol interface {
 	Open() error
 	Close() error
 	Name() string
-	Invoke(string, io.Reader, io.Writer) string
+	Invoke(*Operate, io.Reader, io.Writer) string
 }
 
 type SSH struct {
@@ -67,7 +67,8 @@ func (s *SSH) Name() string {
 	return "ssh:@" + s.Addr
 }
 
-func (s *SSH) Invoke(cmd string, reader io.Reader, writer io.Writer) string {
+func (s *SSH) Invoke(op *Operate, reader io.Reader, writer io.Writer) string {
+	cmd := op.Argument
 	if strings.HasPrefix(cmd, "!") {
 		s.session.Stderr = writer
 		s.session.Stdout = writer
@@ -86,7 +87,13 @@ func (s *SSH) Invoke(cmd string, reader io.Reader, writer io.Writer) string {
 		s.session.Stderr = writer
 		s.session.Stdout = writer
 		s.session.Stdin = reader
-		s.session.Run(string(str))
+		// write env
+		var shell string
+		for k, v := range op.Env {
+			shell = shell + k + "=" + v + "\n"
+		}
+		shell = shell + string(str)
+		s.session.Run(string(shell))
 	}
 	return ""
 }

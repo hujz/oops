@@ -1,4 +1,4 @@
-<system name="test" version="1">
+<system specs="linux" name="test" version="1">
     <service name="nginx" version="1.12.0">
         <protocol name="ssh">ssh:e1b5d981f079610d7dfb8ddc1cf0e8f0@127.0.0.1:22</protocol>
         <operate name="start" protocol="ssh">!ls -anlh</operate>

@@ -28,7 +28,7 @@ const (
 
 type Service struct {
 	Version, Name string
-	Env           string
+	Env           map[string]string
 	Protocol      map[string]IProtocol
 	Operate       map[string]*Operate
 	Depth         int
@@ -43,6 +43,7 @@ type Protocol struct {
 type Operate struct {
 	Name, Argument string
 	Protocol       IProtocol
+	Env            map[string]string
 }
 
 func (o *Operate) Invoke(input io.Reader, output io.Writer) (string, error) {
@@ -51,7 +52,7 @@ func (o *Operate) Invoke(input io.Reader, output io.Writer) (string, error) {
 		return "", errors.WithMessage(err, "open (\""+o.Protocol.Name()+"\") error!")
 	}
 	defer o.Protocol.Close()
-	return o.Protocol.Invoke(o.Argument, input, output), nil
+	return o.Protocol.Invoke(o, input, output), nil
 }
 
 func (s *Service) Invoke(operate string, input io.Reader, output io.Writer) (Result, error) {

@@ -1,9 +1,11 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"oops/system"
 	"oops/util"
 	"os"
@@ -15,6 +17,7 @@ type XMLSystem struct {
 	XMLName xml.Name     `xml:"system"`
 	Version string       `xml:"version,attr"`
 	Name    string       `xml:"name,attr"`
+	Specs   string       `xml:"specs,attr"`
 	Server  []XMLService `xml:"service"`
 }
 
@@ -27,6 +30,7 @@ type XMLService struct {
 	XMLName    xml.Name      `xml:"service"`
 	Version    string        `xml:"version,attr"`
 	Name       string        `xml:"name,attr"`
+	Specs      string        `xml:"specs,attr"`
 	Env        string        `xml:env,chardata`
 	Operate    []XMLOperate  `xml:"operate"`
 	Protocol   []XMLProtocol `xml:"protocol"`
@@ -46,15 +50,24 @@ type XMLOperate struct {
 	Argument string   `xml:",chardata"`
 }
 
-var dataDir string
-
-func init() {
-	dataDir = util.GetConfig().MetaDir
-	os.Mkdir(dataDir, os.ModePerm)
+type XMLSpecs struct {
+	XMLName  xml.Name      `xml:"specs"`
+	Name     string        `xml:"name,attr"`
+	Protocol []XMLProtocol `xml:"protocol"`
+	Operate  []XMLOperate  `xml:"operate"`
 }
+
+var dataDir string
 
 // nameDirMapping 系统名和文件夹对应关系
 var nameDirMapping map[string]string
+
+var xmlLogger = log.New(os.Stdout, "[xml] ", log.Llongfile|log.LstdFlags|log.Lmicroseconds)
+
+func init() {
+	//dataDir = util.GetConfig().MetaDir
+	//os.Mkdir(dataDir, os.ModePerm)
+}
 
 // GetSystemNames 获取当前接管的系统名称，并缓存
 func GetSystemNames() []string {
@@ -104,6 +117,39 @@ func getVersion(system string) []string {
 		}
 	}
 	return []string{"system.xml", "service.xml"}
+}
+
+var specsCache = new(map[string]*XMLSpecs)
+
+func getCacheSpecs() *map[string]*XMLSpecs {
+	if len(*specsCache) != 0 {
+		return specsCache
+	}
+	fs, err := ioutil.ReadDir(util.GetConfig().SpecsDir)
+	if err != nil {
+		xmlLogger.Printf("read specs(%s) failed!\n", util.GetConfig().SpecsDir)
+		return nil
+	}
+	for _, fi := range fs {
+		f, err := os.Open(fi.Name())
+		if err != nil {
+			xmlLogger.Printf("open file(%s) failed!\n", fi.Name())
+			return nil
+		}
+		d, err := ioutil.ReadAll(f)
+		if err != nil {
+			xmlLogger.Printf("read file(%s) failed!\n", fi.Name())
+			return nil
+		}
+		s := &XMLSpecs{}
+		err = xml.Unmarshal(d, s)
+		if err != nil {
+			xmlLogger.Printf("parse xml(%s) failed!\n", fi.Name())
+			return nil
+		}
+		(*specsCache)[s.Name] = s
+	}
+	return specsCache
 }
 
 // GetSystem 获取指定系统
@@ -185,8 +231,22 @@ func allUsedServer(ss []*system.Service, usedNames map[string]string) {
 // resolveService 将所有配置的service，转换成service映射表
 func resolveService(sys *XMLSystem, serviceList *XMLServiceList) map[string]*system.Service {
 	xmlServiceMap := make(map[string]*XMLService)
+	instS := strings.Split(sys.Specs, ",")
 	for i := range serviceList.ServiceList {
-		xmlServiceMap[xmlServiceIdentity(serviceList.ServiceList[i])] = &serviceList.ServiceList[i]
+		s := &serviceList.ServiceList[i]
+		// copy specs
+		sp := strings.Split(s.Specs, ",")
+		sp = append(sp, instS...)
+		for _, p := range sp {
+			csp := (*getCacheSpecs())[p]
+			if csp.Operate != nil && len(csp.Operate) != 0 {
+				s.Operate = append(s.Operate, csp.Operate...)
+			}
+			if csp.Protocol != nil && len(csp.Protocol) != 0 {
+				s.Protocol = append(s.Protocol, csp.Protocol...)
+			}
+		}
+		xmlServiceMap[xmlServiceIdentity(serviceList.ServiceList[i])] = s
 	}
 	for i := range sys.Server {
 		inst := &sys.Server[i]
@@ -218,15 +278,15 @@ func resolveService(sys *XMLSystem, serviceList *XMLServiceList) map[string]*sys
 	}
 	serviceMap := make(map[string]*system.Service)
 	for _, s := range serviceList.ServiceList {
-		service := system.Service{Name: s.Name, Version: s.Version, Depth: 1, Env: s.Env}
+		service := system.Service{Name: s.Name, Version: s.Version, Depth: 1, Env: util.Build(s.Env)}
 		serviceMap[xmlServiceIdentity(s)] = &service
 		protocolMap := make(map[string]system.IProtocol)
 		for _, p := range s.Protocol {
-			protocolMap[p.Name] = system.BuildProtocol(system.Protocol{Name: p.Name, URI: p.URI})
+			protocolMap[p.Name] = system.BuildProtocol(system.Protocol{Name: p.Name, URI: ParseParams(p.URI, service.Env)})
 		}
 		operateMap := make(map[string]*system.Operate)
 		for _, o := range s.Operate {
-			operateMap[o.Name] = &system.Operate{Name: o.Name, Protocol: protocolMap[o.Protocol], Argument: o.Argument}
+			operateMap[o.Name] = &system.Operate{Name: o.Name, Protocol: protocolMap[o.Protocol], Argument: ParseParams(o.Argument, service.Env), Env: service.Env}
 		}
 		service.Protocol = protocolMap
 		service.Operate = operateMap
@@ -242,6 +302,70 @@ func resolveDependency(serviceMap map[string]*system.Service, xmlServiceList *XM
 			serviceMap[xmlServiceIdentity(xs)].Dependency = append(serviceMap[xmlServiceIdentity(xs)].Dependency, getService(serviceMap, xd.Name, xmlServiceIdentity(xd)))
 		}
 	}
+}
+
+func ParseParams(s string, p map[string]string) string {
+	buf, keyBuf := bytes.Buffer{}, bytes.Buffer{}
+	st := 0 // 0: text, 1: key, 2: escape, 3: quote
+	for i, l, t := 0, len(s), byte(0); i < l; i++ {
+		t = s[i]
+		switch st {
+		case 3:
+			if t == '\'' {
+				st = 0
+				break
+			}
+			buf.WriteByte(t)
+		case 2:
+			buf.WriteByte(t)
+			st = 0
+		case 1:
+			if t >= 'a' && t <= 'z' || t >= 'A' && t <= 'Z' || t >= '0' && t <= '9' {
+				keyBuf.WriteByte(t)
+				break
+			}
+			v, e := p[string(keyBuf.Bytes())]
+			if e {
+				buf.WriteString(v)
+			} else {
+				buf.WriteByte('$')
+				buf.Write(keyBuf.Bytes())
+			}
+			keyBuf.Reset()
+			switch t {
+			case '\\':
+				st = 2
+			case '$':
+				st = 1
+			case '\'':
+				st = 3
+			default:
+				st = 0
+				buf.WriteByte(t)
+			}
+		default:
+			switch t {
+			case '\\':
+				st = 2
+			case '$':
+				st = 1
+			case '\'':
+				st = 3
+			default:
+				st = 0
+				buf.WriteByte(t)
+			}
+		}
+	}
+	switch st {
+	case 1:
+		buf.WriteByte('$')
+	case 2:
+		buf.WriteByte('\\')
+	case 3:
+		buf.WriteByte('\'')
+	}
+	return buf.String()
 }
 
 func xmlServiceIdentity(service XMLService) string {

@@ -10,31 +10,36 @@ import (
 var logger = log.New(os.Stdout, "[config] ", log.Llongfile|log.LstdFlags|log.Lmicroseconds)
 
 type TConfig struct {
-	HttpAddr, ConsoleAddr, ShellDir, MetaDir string
+	HttpAddr, ConsoleAddr, ShellDir, MetaDir, SpecsDir string
 }
 
 var Config *TConfig
 
 func GetConfig() *TConfig {
 	if Config == nil {
-		Config = Build()
+		m := build()
+		config := &TConfig{}
+		for k, v := range m {
+			switch k {
+			case "http":
+				config.HttpAddr = v
+			case "console":
+				config.ConsoleAddr = v
+			case "shell_dir":
+				config.ShellDir = v
+			case "meta_dir":
+				config.MetaDir = v
+			case "specs_dir":
+				config.SpecsDir = v
+			}
+		}
 	}
 	return Config
 }
 
-func Build() *TConfig {
-	file, err := os.Open("config.conf")
-	if err != nil {
-		logger.Println(err)
-		return nil
-	}
-	str, err := ioutil.ReadAll(file)
-	if err != nil {
-		logger.Println(err)
-		return nil
-	}
-	config := &TConfig{}
-	lines := strings.Split(string(str), "\n")
+func Build(content string) map[string]string {
+	lines := strings.Split(content, "\n")
+	m := make(map[string]string)
 	for _, l := range lines {
 		l = strings.TrimSpace(l)
 		if len(l) >= 1 && l[len(l)-1] == '\r' {
@@ -53,16 +58,21 @@ func Build() *TConfig {
 		} else {
 			k = l
 		}
-		switch k {
-		case "http":
-			config.HttpAddr = v
-		case "console":
-			config.ConsoleAddr = v
-		case "shell_dir":
-			config.ShellDir = v
-		case "meta_dir":
-			config.MetaDir = v
-		}
+		m[k] = v
 	}
-	return config
+	return m
+}
+
+func build() map[string]string {
+	file, err := os.Open("config.conf")
+	if err != nil {
+		logger.Println(err)
+		return nil
+	}
+	str, err := ioutil.ReadAll(file)
+	if err != nil {
+		logger.Println(err)
+		return nil
+	}
+	return Build(string(str))
 }
