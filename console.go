@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var logger = log.New(os.Stdout, "[console] ", log.Llongfile|log.LstdFlags|log.Lmicroseconds)
+var logger = log.New(os.Stdout, "[console] ", log.Lshortfile|log.LstdFlags|log.Lmicroseconds)
 
 // ProtocolListen listen a port
 func ProtocolListen(addr string) {
@@ -72,6 +72,10 @@ func NewHandler(conn net.Conn) *Handler {
 }
 
 func (h *Handler) Prompt() {
+	h.conn.Write(h.prompt)
+}
+func (h *Handler) PrintlnPrompt() {
+	h.conn.Write([]byte("\r\n"))
 	h.conn.Write(h.prompt)
 }
 
@@ -214,6 +218,15 @@ func (h *Handler) SystemPhase() int {
 			return 0
 		}
 		switch cmd[0] {
+		case "start":
+			h.sys.Start(h.conn, h.conn)
+			h.PrintlnPrompt()
+		case "stop":
+			h.sys.Stop(h.conn, h.conn)
+			h.PrintlnPrompt()
+		case "status":
+			h.sys.Status(h.conn, h.conn)
+			h.PrintlnPrompt()
 		case "l", "ls", "ll":
 			buf := bytes.Buffer{}
 			for i, s := range h.sys.Service {
@@ -259,20 +272,22 @@ func (h *Handler) SystemPhase() int {
 			for i := range h.sys.Service {
 				if len(cmd) == 2 && h.sys.Service[i].Name == cmd[1] {
 					h.svr = h.sys.Service[i]
+					h.resetPrompt()
+					return 2
 				} else if len(cmd) == 3 && h.sys.Service[i].Name == cmd[1] && h.sys.Service[i].Version == cmd[2] {
 					h.svr = h.sys.Service[i]
-				} else {
-					errMsg := "not found instance(\"" + cmd[1]
-					if len(cmd) == 3 {
-						errMsg = errMsg + "(" + cmd[2] + ")"
-					}
-					errMsg = errMsg + "\")"
-					h.PrintlnEnd([]byte(errMsg))
-					break
+					h.resetPrompt()
+					return 2
 				}
-				h.resetPrompt()
-				return 2
 			}
+
+			errMsg := "not found instance(\"" + cmd[1]
+			if len(cmd) == 3 {
+				errMsg = errMsg + "(" + cmd[2] + ")"
+			}
+			errMsg = errMsg + "\")"
+			h.PrintlnEnd([]byte(errMsg))
+			continue
 		case "b", "leave", "byte":
 			h.sys, h.svr = nil, nil
 			h.resetPrompt()
@@ -306,12 +321,19 @@ func (h *Handler) InstancePhase() int {
 		if cmd == nil {
 			return 0
 		}
+		// service operate
+		if op := h.svr.Operate[cmd[0]]; op != nil {
+			h.svr.Invoke(cmd[0], h.conn, h.conn)
+			h.PrintlnPrompt()
+			continue
+		}
+
 		switch cmd[0] {
 		case "!", "o", "op", "operate":
 			buf := bytes.Buffer{}
 			for i := range h.svr.Operate {
 				buf.Write([]byte(h.svr.Operate[i].Name))
-				buf.Write([]byte("(via " + h.svr.Operate[i].Protocol.Name() + ")\n"))
+				buf.Write([]byte("(via (" + h.svr.Operate[i].Protocol.Name() + ")\n"))
 			}
 			if buf.Len() >= 1 {
 				buf.Truncate(buf.Len() - 1)
@@ -339,8 +361,7 @@ func (h *Handler) InstancePhase() int {
 			h.svr.Invoke(system.Operate_Status, h.conn, h.conn)
 			h.Prompt()
 		case "*", "info":
-			h.svr.Invoke(system.Operate_Start, h.conn, h.conn)
-			h.PrintlnEnd([]byte(h.svr.Env))
+			h.PrintlnEnd([]byte(h.svr.Name))
 		case "=", "q", "quit", "leave", "bye":
 			h.svr = nil
 			h.resetPrompt()
@@ -376,8 +397,9 @@ $, stop
 	打印帮助信息`
 			h.PrintlnEnd([]byte(str))
 		default:
-			h.PrintlnEnd([]byte("unknown command"))
-			continue
+			if len(cmd[0]) != 0 {
+				h.PrintlnEnd([]byte("unknown command"))
+			}
 		}
 	}
 }

@@ -33,6 +33,7 @@ func GetConfig() *TConfig {
 				config.SpecsDir = v
 			}
 		}
+		Config = config
 	}
 	return Config
 }

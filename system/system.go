@@ -75,10 +75,9 @@ func (sys *System) Start(input io.Reader, output io.Writer) {
 	for l := len(sys.LevelMatrix) - 1; l > 0; l-- {
 		for j := len(sys.LevelMatrix[l]) - 1; j >= 0; j-- {
 			s := sys.LevelMatrix[l][j]
-			output.Write([]byte(strconv.Itoa(l) + ": start " + s.Name + "(" + s.Version + ")\n"))
+			output.Write([]byte(strconv.Itoa(l) + " start " + s.Name + "(" + s.Version + "): "))
 			s.Invoke(Operate_Start, input, output)
 		}
-		output.Write([]byte("\n"))
 	}
 }
 
@@ -86,20 +85,20 @@ func (sys *System) Stop(input io.Reader, output io.Writer) {
 	for l1, i := len(sys.LevelMatrix), 1; i < l1; i++ {
 		for l2, j := len(sys.LevelMatrix[i]), 0; j < l2; j++ {
 			s := sys.LevelMatrix[i][j]
-			output.Write([]byte(strconv.Itoa(i) + ": start " + s.Name + "(" + s.Version + ")\n"))
+			output.Write([]byte(strconv.Itoa(i) + " stop " + s.Name + "(" + s.Version + "): "))
 			s.Invoke(Operate_Stop, input, output)
 		}
-		output.Write([]byte("\n"))
 	}
 }
 
 func (sys *System) Status(input io.Reader, output io.Writer) {
 	for l1, i := len(sys.LevelMatrix), 1; i < l1; i++ {
+		output.Write([]byte(strconv.Itoa(i)))
 		for l2, j := len(sys.LevelMatrix[i]), 0; j < l2; j++ {
 			s := sys.LevelMatrix[i][j]
-			output.Write([]byte(strconv.Itoa(i) + ": start " + s.Name + "(" + s.Version + ")\n"))
-			s.Invoke(Operate_Status, input, output)
+			output.Write([]byte(" status " + s.Name + "(" + s.Version + "): "))
+			s.Status(input, output)
 		}
-		output.Write([]byte("\n"))
+		output.Write([]byte{'\n'})
 	}
 }

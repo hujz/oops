@@ -13,7 +13,7 @@ import (
 
 import ossh "oops/ssh"
 
-var sshLogger = log.New(os.Stdout, "[ssh] ", log.Llongfile|log.LstdFlags|log.Lmicroseconds)
+var sshLogger = log.New(os.Stdout, "[ssh] ", log.Lshortfile|log.LstdFlags|log.Lmicroseconds)
 
 func BuildProtocol(protocol Protocol) IProtocol {
 	uri := protocol.URI
@@ -38,7 +38,7 @@ type SSH struct {
 }
 
 func (s *SSH) Open() error {
-	sshLogger.Println("open")
+	sshLogger.Println("open", s.Addr)
 	desPw := []byte("123456781234567812345678")
 	id, _ := hex.DecodeString(s.Identity)
 	plain, err := util.DesDecrypt(id, desPw)
@@ -48,9 +48,6 @@ func (s *SSH) Open() error {
 		session, err := ossh.OpenSSHSession(user, passwd, s.Addr)
 		if err == nil {
 			s.session = session
-			session.Stdin = os.Stdin
-			session.Stdout = os.Stdout
-			session.Stderr = os.Stderr
 			return nil
 		}
 		return err
@@ -72,7 +69,7 @@ func (s *SSH) Invoke(op *Operate, reader io.Reader, writer io.Writer) string {
 	if strings.HasPrefix(cmd, "!") {
 		s.session.Stderr = writer
 		s.session.Stdout = writer
-		s.session.Stdin = reader
+		//s.session.Stdin = reader
 		s.session.Run(cmd[1:])
 	} else {
 		file, err := os.Open(util.GetConfig().ShellDir + cmd)
@@ -86,7 +83,7 @@ func (s *SSH) Invoke(op *Operate, reader io.Reader, writer io.Writer) string {
 		}
 		s.session.Stderr = writer
 		s.session.Stdout = writer
-		s.session.Stdin = reader
+		//s.session.Stdin = reader
 		// write env
 		var shell string
 		for k, v := range op.Env {

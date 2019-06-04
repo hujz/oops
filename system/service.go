@@ -1,10 +1,12 @@
 package system
 
 import (
+	"bytes"
 	"github.com/pkg/errors"
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 var logger = log.New(os.Stdout, "[service] ", log.LstdFlags|log.Lshortfile|log.Lmicroseconds)
@@ -56,9 +58,14 @@ func (o *Operate) Invoke(input io.Reader, output io.Writer) (string, error) {
 }
 
 func (s *Service) Invoke(operate string, input io.Reader, output io.Writer) (Result, error) {
-	logger.Println(s.Name, "-->", operate)
-	s.Operate[operate].Invoke(input, output)
-	return Result_Ok, nil
+	logger.Println(s.Name, "->", operate)
+	r, e := s.Operate[operate].Invoke(input, output)
+	if e == nil {
+		return Result_Ok, nil
+	} else {
+		logger.Println(r)
+		return Result_Failed, e
+	}
 }
 
 func (s *Service) Start(input io.Reader, output io.Writer) (Result, error) {
@@ -74,9 +81,13 @@ func (s *Service) Stop(input io.Reader, output io.Writer) (Result, error) {
 }
 
 func (s *Service) Status(input io.Reader, output io.Writer) bool {
-	res, err := s.Invoke(Operate_Status, input, output)
+	buf := bytes.Buffer{}
+	_, err := s.Invoke(Operate_Status, input, &buf)
 	if err == nil {
-		return res == "ok"
+		str := buf.String()
+		str = strings.TrimSpace(str)
+		output.Write([]byte{'o', 'k'})
+		return strings.HasSuffix(str, "ok")
 	} else {
 		logger.Println("check status failed!", err)
 		return false

@@ -1,26 +1,36 @@
 <service>
-    <service specs="linux,mysql" name="mysql" version="5.7">
-        <protocol name="mysql">mysql:e1b5d981f079610d7dfb8ddc1cf0e8f0@127.0.0.1:3306/link</protocol>
-        <operate name="start" protocol="ssh">!service mysql start</operate>
-        <operate name="stop" protocol="ssh">!sudo service mysql stop</operate>
-        <operate name="status" protocol="ssh">!sudo service mysql status</operate>
-        <operate name="init" protocol="ssh">mysql-init.sh</operate>
+    <service specs="mysql" name="mysql" version="5.7">
         <env>
-            bindir=""
-            datadir=""
-            logdir=""
-            confdir=""
+            name mysql
         </env>
     </service>
-    <service specs="linux" name="redis"></service>
-    <service name="rabbitmq"></service>
-    <service name="mongodb"></service>
+    <service name="redis">
+        <env>
+            name redis
+        </env>
+    </service>
+    <service name="rabbitmq">
+        <env>
+            name rabbitmq
+        </env>
+    </service>
+    <service name="mongodb">
+        <env>
+            name mongodb
+        </env>
+    </service>
     <service name="haproxy">
+        <env>
+            name haproxy
+        </env>
         <dependency>
             <service name="emb"></service>
         </dependency>
     </service>
     <service name="emb">
+        <env>
+            name emb
+        </env>
         <dependency>
             <service name="rabbitmq"></service>
             <service name="mysql"></service>
@@ -28,10 +38,8 @@
         </dependency>
     </service>
     <service name="blogapi">
-        <operate name="start" protocol="ssh">!service blog start</operate>
-        <operate name="stop" protocol="ssh">!service blog stop</operate>
-        <operate name="status" protocol="ssh">blog_check.sh</operate>
-        <env>bindir="" datadir="" logdir="" confdir=""
+        <env>
+            name blogapi
         </env>
         <dependency>
             <service name="mysql"></service>
@@ -41,6 +49,9 @@
         </dependency>
     </service>
     <service name="nginx" version="1.12.3">
+        <env>
+            name nginx
+        </env>
         <dependency>
             <service name="blogapi"></service>
         </dependency>

@@ -31,7 +31,7 @@ type XMLService struct {
 	Version    string        `xml:"version,attr"`
 	Name       string        `xml:"name,attr"`
 	Specs      string        `xml:"specs,attr"`
-	Env        string        `xml:env,chardata`
+	Env        string        `xml:"env"`
 	Operate    []XMLOperate  `xml:"operate"`
 	Protocol   []XMLProtocol `xml:"protocol"`
 	Dependency []XMLService  `xml:"dependency>service"`
@@ -65,8 +65,8 @@ var nameDirMapping map[string]string
 var xmlLogger = log.New(os.Stdout, "[xml] ", log.Llongfile|log.LstdFlags|log.Lmicroseconds)
 
 func init() {
-	//dataDir = util.GetConfig().MetaDir
-	//os.Mkdir(dataDir, os.ModePerm)
+	dataDir = util.GetConfig().MetaDir
+	os.Mkdir(dataDir, os.ModePerm)
 }
 
 // GetSystemNames 获取当前接管的系统名称，并缓存
@@ -74,16 +74,20 @@ func GetSystemNames() []string {
 	file, _ := os.Open(dataDir)
 	if file != nil {
 		nameDirMapping = make(map[string]string)
+		var sysNames []string
 		if names, _ := file.Readdirnames(-1); names != nil {
-			for i, n := range names {
+			for _, n := range names {
 				xmlFileNames := getVersion(n)
+				if xmlFileNames == nil {
+					continue
+				}
 				data := readData(n, xmlFileNames[0])
 				sys := XMLSystem{}
 				xml.Unmarshal(data, &sys)
 				nameDirMapping[sys.Name] = n
-				names[i] = sys.Name
+				sysNames = append(sysNames, sys.Name)
 			}
-			return names
+			return sysNames
 		}
 	}
 	return nil
@@ -116,13 +120,14 @@ func getVersion(system string) []string {
 			return strings.Split(str, "\n")
 		}
 	}
-	return []string{"system.xml", "service.xml"}
+	//return []string{"system.xml", "service.xml"}
+	return nil
 }
 
-var specsCache = new(map[string]*XMLSpecs)
+var specsCache map[string]*XMLSpecs
 
-func getCacheSpecs() *map[string]*XMLSpecs {
-	if len(*specsCache) != 0 {
+func getCacheSpecs() map[string]*XMLSpecs {
+	if len(specsCache) != 0 {
 		return specsCache
 	}
 	fs, err := ioutil.ReadDir(util.GetConfig().SpecsDir)
@@ -131,9 +136,9 @@ func getCacheSpecs() *map[string]*XMLSpecs {
 		return nil
 	}
 	for _, fi := range fs {
-		f, err := os.Open(fi.Name())
+		f, err := os.Open(filepath.Join(util.GetConfig().SpecsDir, fi.Name()))
 		if err != nil {
-			xmlLogger.Printf("open file(%s) failed!\n", fi.Name())
+			xmlLogger.Printf("open file(%s) failed, %s!\n", fi.Name(), err)
 			return nil
 		}
 		d, err := ioutil.ReadAll(f)
@@ -147,7 +152,8 @@ func getCacheSpecs() *map[string]*XMLSpecs {
 			xmlLogger.Printf("parse xml(%s) failed!\n", fi.Name())
 			return nil
 		}
-		(*specsCache)[s.Name] = s
+		specsCache = make(map[string]*XMLSpecs)
+		specsCache[s.Name] = s
 	}
 	return specsCache
 }
@@ -163,6 +169,9 @@ func GetSystem(system string) *system.System {
 
 	system = nameDirMapping[system]
 	xmlFileNames := getVersion(system)
+	if xmlFileNames == nil {
+		return nil
+	}
 	systemData := readData(system, xmlFileNames[0])
 	serverData := readData(system, xmlFileNames[1])
 
@@ -238,12 +247,13 @@ func resolveService(sys *XMLSystem, serviceList *XMLServiceList) map[string]*sys
 		sp := strings.Split(s.Specs, ",")
 		sp = append(sp, instS...)
 		for _, p := range sp {
-			csp := (*getCacheSpecs())[p]
-			if csp.Operate != nil && len(csp.Operate) != 0 {
-				s.Operate = append(s.Operate, csp.Operate...)
-			}
-			if csp.Protocol != nil && len(csp.Protocol) != 0 {
-				s.Protocol = append(s.Protocol, csp.Protocol...)
+			if csp := getCacheSpecs()[p]; csp != nil {
+				if csp.Operate != nil && len(csp.Operate) != 0 {
+					s.Operate = append(s.Operate, csp.Operate...)
+				}
+				if csp.Protocol != nil && len(csp.Protocol) != 0 {
+					s.Protocol = append(s.Protocol, csp.Protocol...)
+				}
 			}
 		}
 		xmlServiceMap[xmlServiceIdentity(serviceList.ServiceList[i])] = s
@@ -251,12 +261,10 @@ func resolveService(sys *XMLSystem, serviceList *XMLServiceList) map[string]*sys
 	for i := range sys.Server {
 		inst := &sys.Server[i]
 		tpl := xmlServiceMap[xmlServiceIdentity(*inst)]
-		if tpl == nil {
-			if inst.Version == "" {
-				for j, s := range serviceList.ServiceList {
-					if s.Name == inst.Name {
-						tpl = &serviceList.ServiceList[j]
-					}
+		if tpl == nil && inst.Version == "" {
+			for j, s := range serviceList.ServiceList {
+				if s.Name == inst.Name {
+					tpl = &serviceList.ServiceList[j]
 				}
 			}
 		}
@@ -273,6 +281,19 @@ func resolveService(sys *XMLSystem, serviceList *XMLServiceList) map[string]*sys
 				tpl.Protocol = append(tpl.Protocol, inst.Protocol...)
 			}
 		} else { // add new instance to service list
+			// copy specs
+			sp := strings.Split(inst.Specs, ",")
+			sp = append(sp, instS...)
+			for _, p := range sp {
+				if csp := getCacheSpecs()[p]; csp != nil {
+					if csp.Operate != nil && len(csp.Operate) != 0 {
+						inst.Operate = append(inst.Operate, csp.Operate...)
+					}
+					if csp.Protocol != nil && len(csp.Protocol) != 0 {
+						inst.Protocol = append(inst.Protocol, csp.Protocol...)
+					}
+				}
+			}
 			serviceList.ServiceList = append(serviceList.ServiceList, *inst)
 		}
 	}
@@ -355,6 +376,12 @@ func ParseParams(s string, p map[string]string) string {
 				st = 0
 				buf.WriteByte(t)
 			}
+		}
+	}
+	if keyBuf.Len() != 0 {
+		if v, e := p[string(keyBuf.Bytes())]; e {
+			buf.WriteString(v)
+			return buf.String()
 		}
 	}
 	switch st {
